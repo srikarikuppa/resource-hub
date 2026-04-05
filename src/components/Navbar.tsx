@@ -1,12 +1,14 @@
-import { Link, useLocation } from 'react-router-dom';
-import { Search, Bookmark, MessageCircle, User, GraduationCap } from 'lucide-react';
+import { Link, useLocation, useNavigate } from 'react-router-dom';
+import { Search, Bookmark, MessageCircle, User, GraduationCap, LogOut } from 'lucide-react';
 import { useState } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useAuth } from '@/lib/auth-context';
+
 
 const Navbar = () => {
   const [query, setQuery] = useState('');
   const location = useLocation();
   const navigate = useNavigate();
+  const { user, logout } = useAuth();
 
   const handleSearch = (e: React.FormEvent) => {
     e.preventDefault();
@@ -46,24 +48,42 @@ const Navbar = () => {
           </div>
         </form>
 
-        <nav className="flex items-center gap-1">
-          {navItems.map(({ to, icon: Icon, label }) => {
-            const active = location.pathname === to;
-            return (
-              <Link
-                key={to}
-                to={to}
-                className={`flex h-10 w-10 items-center justify-center rounded-xl transition-all active:scale-[0.95] ${
-                  active
-                    ? 'bg-primary/10 text-primary'
-                    : 'text-muted-foreground hover:bg-muted hover:text-foreground'
-                }`}
-                title={label}
+        <nav className="flex items-center gap-1 sm:gap-2">
+          {user ? (
+            <>
+              {navItems.map(({ to, icon: Icon, label }) => {
+                const active = location.pathname === to;
+                return (
+                  <Link
+                    key={to}
+                    to={to}
+                    className={`flex h-10 w-10 items-center justify-center rounded-xl transition-all active:scale-[0.95] ${
+                      active
+                        ? 'bg-primary/10 text-primary'
+                        : 'text-muted-foreground hover:bg-muted hover:text-foreground'
+                    }`}
+                    title={label}
+                  >
+                    <Icon className="h-5 w-5" />
+                  </Link>
+                );
+              })}
+              <button
+                onClick={logout}
+                className="flex h-10 w-10 items-center justify-center rounded-xl text-muted-foreground hover:bg-destructive/10 hover:text-destructive transition-all active:scale-[0.95]"
+                title="Logout"
               >
-                <Icon className="h-5 w-5" />
-              </Link>
-            );
-          })}
+                <LogOut className="h-5 w-5" />
+              </button>
+            </>
+          ) : (
+            <Link
+              to="/auth"
+              className="flex items-center gap-2 rounded-full bg-primary px-5 py-2 text-sm font-medium text-primary-foreground hover:bg-primary/90 transition-all hover:shadow-glow active:scale-95"
+            >
+              Sign In
+            </Link>
+          )}
         </nav>
       </div>
     </header>

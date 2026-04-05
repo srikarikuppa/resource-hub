@@ -4,6 +4,7 @@ import { Toaster as Sonner } from "@/components/ui/sonner";
 import { Toaster } from "@/components/ui/toaster";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import { ResourceProvider } from "@/lib/resource-context";
+import { AuthProvider } from "@/lib/auth-context";
 import Navbar from "@/components/Navbar";
 import Index from "./pages/Index";
 import ResourceDetail from "./pages/ResourceDetail";
@@ -11,6 +12,7 @@ import Upload from "./pages/Upload";
 import Saved from "./pages/Saved";
 import Channels from "./pages/Channels";
 import Profile from "./pages/Profile";
+import Auth from "./pages/Auth";
 import NotFound from "./pages/NotFound";
 
 const queryClient = new QueryClient();
@@ -18,9 +20,10 @@ const queryClient = new QueryClient();
 const App = () => (
   <QueryClientProvider client={queryClient}>
     <TooltipProvider>
-      <ResourceProvider>
-        <Toaster />
-        <Sonner />
+      <AuthProvider>
+        <ResourceProvider>
+          <Toaster />
+          <Sonner />
         <BrowserRouter>
           <Navbar />
           <main className="min-h-[calc(100vh-4rem)]">
@@ -31,11 +34,13 @@ const App = () => (
               <Route path="/saved" element={<Saved />} />
               <Route path="/channels" element={<Channels />} />
               <Route path="/profile" element={<Profile />} />
+              <Route path="/auth" element={<Auth />} />
               <Route path="*" element={<NotFound />} />
             </Routes>
           </main>
         </BrowserRouter>
-      </ResourceProvider>
+        </ResourceProvider>
+      </AuthProvider>
     </TooltipProvider>
   </QueryClientProvider>
 );

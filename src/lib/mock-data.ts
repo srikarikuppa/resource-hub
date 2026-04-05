@@ -12,6 +12,7 @@ export interface Resource {
   reviewCount: number;
   description: string;
   fileSize: string;
+  fileUrl?: string;
 }
 
 export interface Review {

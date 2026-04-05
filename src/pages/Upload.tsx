@@ -4,6 +4,8 @@ import { ArrowLeft, Upload as UploadIcon, FileUp } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { YEARS, BRANCHES, SUBJECTS } from '@/lib/mock-data';
 import { toast } from 'sonner';
+import { supabase } from '@/lib/supabase';
+import { useAuth } from '@/lib/auth-context';
 
 const selectClass =
   'w-full h-10 rounded-lg border border-border bg-card px-3 text-sm text-foreground focus:outline-none focus:ring-2 focus:ring-ring/40 transition-all';
@@ -14,15 +16,82 @@ const Upload = () => {
   const [branch, setBranch] = useState('');
   const [subject, setSubject] = useState('');
   const [file, setFile] = useState<File | null>(null);
+  const [isUploading, setIsUploading] = useState(false);
+  const { user } = useAuth();
 
   const subjects = branch ? SUBJECTS[branch] || [] : [];
   const canSubmit = title.trim() && year && branch && subject && file;
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const maxFileSize = 5 * 1024 * 1024; // 5MB
+
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!canSubmit) return;
-    toast.success('Resource uploaded successfully! AI validation in progress…');
-    setTitle(''); setYear(''); setBranch(''); setSubject(''); setFile(null);
+    if (!canSubmit || !user) {
+      if (!user) toast.error('You must be logged in to upload resources');
+      return;
+    }
+    
+    if (file && file.size > maxFileSize) {
+      toast.error('File size limit exceeded. Please upload a file under 5MB.');
+      return;
+    }
+
+    setIsUploading(true);
+    const toastId = toast.loading('Uploading resource...');
+
+    try {
+      // 1. Upload file to Supabase Storage
+      const fileExt = file.name.split('.').pop();
+      const fileName = `${Math.random()}-${Date.now()}.${fileExt}`;
+      const filePath = `${user.uid}/${fileName}`;
+
+      const { error: uploadError, data } = await supabase.storage
+        .from('resources')
+        .upload(filePath, file);
+
+      if (uploadError) throw uploadError;
+
+      // 2. Get Public URL
+      const { data: { publicUrl } } = supabase.storage
+        .from('resources')
+        .getPublicUrl(filePath);
+
+      // 3. Detect type from extension
+      const typeMap: Record<string, string> = {
+          pdf: 'pdf',
+          pptx: 'presentation',
+          ppt: 'presentation',
+          docx: 'notes',
+          doc: 'notes',
+          txt: 'notes'
+      };
+      const resourceType = typeMap[fileExt?.toLowerCase() || ''] || 'notes';
+
+      // 4. Insert into resources table
+      const { error: dbError } = await supabase
+        .from('resources')
+        .insert({
+          title,
+          description: `Uploaded by ${user.email}`,
+          type: resourceType,
+          year,
+          branch,
+          subject,
+          file_url: publicUrl,
+          file_size: `${(file.size / (1024 * 1024)).toFixed(1)} MB`,
+          uploaded_by: user.uid
+        });
+
+      if (dbError) throw dbError;
+
+      toast.success('Resource uploaded successfully!', { id: toastId });
+      setTitle(''); setYear(''); setBranch(''); setSubject(''); setFile(null);
+    } catch (error: any) {
+      console.error('Upload error:', error);
+      toast.error(error.message || 'Failed to upload resource', { id: toastId });
+    } finally {
+      setIsUploading(false);
+    }
   };
 
   return (
@@ -78,19 +147,19 @@ const Upload = () => {
             <label className="flex flex-col items-center justify-center gap-2 rounded-xl border-2 border-dashed border-border bg-muted/30 p-8 cursor-pointer transition-colors hover:border-primary/40 hover:bg-muted/50">
               <FileUp className="h-8 w-8 text-muted-foreground" />
               <span className="text-sm text-muted-foreground">
-                {file ? file.name : 'Click to select a file (PDF, PPTX, DOCX)'}
+                {file ? file.name : 'Click to select a file (Max 5MB)'}
               </span>
               <input
                 type="file"
-                accept=".pdf,.pptx,.docx,.doc,.ppt,.txt"
                 className="hidden"
                 onChange={e => setFile(e.target.files?.[0] || null)}
               />
             </label>
           </div>
 
-          <Button type="submit" className="w-full" disabled={!canSubmit}>
-            <UploadIcon className="h-4 w-4 mr-2" /> Upload Resource
+          <Button type="submit" className="w-full" disabled={!canSubmit || isUploading}>
+            <UploadIcon className={`${isUploading ? 'animate-pulse' : ''} h-4 w-4 mr-2`} /> 
+            {isUploading ? 'Uploading...' : 'Upload Resource'}
           </Button>
         </form>
       </div>
