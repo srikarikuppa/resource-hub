@@ -11,6 +11,7 @@ import ResourceDetail from "./pages/ResourceDetail";
 import Upload from "./pages/Upload";
 import Saved from "./pages/Saved";
 import Channels from "./pages/Channels";
+import ChannelChat from "./pages/ChannelChat";
 import Profile from "./pages/Profile";
 import Auth from "./pages/Auth";
 import NotFound from "./pages/NotFound";
@@ -33,6 +34,7 @@ const App = () => (
               <Route path="/upload" element={<Upload />} />
               <Route path="/saved" element={<Saved />} />
               <Route path="/channels" element={<Channels />} />
+              <Route path="/channels/:id" element={<ChannelChat />} />
               <Route path="/profile" element={<Profile />} />
               <Route path="/auth" element={<Auth />} />
               <Route path="*" element={<NotFound />} />
