@@ -1,17 +1,63 @@
 import { useParams, Link } from 'react-router-dom';
 import { ArrowLeft, Download, Bookmark, Star, FileText, User, Calendar, HardDrive, Plus } from 'lucide-react';
-import { mockResources, mockReviews } from '@/lib/mock-data';
+import { mockReviews } from '@/lib/mock-data';
 import { useResources } from '@/lib/resource-context';
 import { Button } from '@/components/ui/button';
-import { useState } from 'react';
+import { supabase } from '@/lib/supabase';
+import type { Resource } from '@/lib/mock-data';
+import { useState, useEffect } from 'react';
 
 const ResourceDetail = () => {
   const { id } = useParams<{ id: string }>();
-  const resource = mockResources.find(r => r.id === id);
+  const [resource, setResource] = useState<Resource | null>(null);
+  const [isLoading, setIsLoading] = useState(true);
   const reviews = mockReviews.filter(r => r.resourceId === id);
   const { toggleSave, isSaved } = useResources();
   const saved = resource ? isSaved(resource.id) : false;
   const [comment, setComment] = useState('');
+
+  useEffect(() => {
+    const fetchResource = async () => {
+      if (!id) return;
+      setIsLoading(true);
+      const { data, error } = await supabase
+        .from('resources')
+        .select('*')
+        .eq('id', id)
+        .single();
+
+      if (!error && data) {
+        setResource({
+          id: data.id,
+          title: data.title,
+          type: data.type,
+          year: data.year,
+          branch: data.branch,
+          subject: data.subject,
+          uploadedBy: data.description?.includes('Uploaded by') ? data.description.split('Uploaded by ')[1] : 'Anonymous',
+          fileSize: data.file_size,
+          fileUrl: data.file_url,
+          rating: 4.5,
+          downloads: 42,
+          reviewCount: 15,
+          description: data.description,
+          uploadDate: new Date(data.created_at).toLocaleDateString()
+        });
+      }
+      setIsLoading(false);
+    };
+
+    fetchResource();
+  }, [id]);
+
+  if (isLoading) {
+    return (
+      <div className="container py-20 text-center">
+        <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary mx-auto"></div>
+        <p className="text-muted-foreground mt-4">Loading resource details...</p>
+      </div>
+    );
+  }
 
   if (!resource) {
     return (
@@ -47,8 +93,12 @@ const ResourceDetail = () => {
                 <Bookmark className="h-4 w-4 mr-1" fill={saved ? 'currentColor' : 'none'} />
                 {saved ? 'Saved' : 'Save'}
               </Button>
-              <Button size="sm">
-                <Download className="h-4 w-4 mr-1" /> Download
+              <Button 
+                size="sm"
+                onClick={() => resource.fileUrl && window.open(resource.fileUrl, '_blank')}
+                disabled={!resource.fileUrl}
+              >
+                <Download className="h-4 w-4 mr-1" /> {resource.fileUrl ? 'Download' : 'No File'}
               </Button>
             </div>
           </div>
