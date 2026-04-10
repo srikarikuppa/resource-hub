@@ -15,6 +15,7 @@ import ChannelChat from "./pages/ChannelChat";
 import Profile from "./pages/Profile";
 import Auth from "./pages/Auth";
 import NotFound from "./pages/NotFound";
+import ProtectedRoute from "@/components/ProtectedRoute";
 
 const queryClient = new QueryClient();
 
@@ -29,13 +30,13 @@ const App = () => (
           <Navbar />
           <main className="min-h-[calc(100vh-4rem)]">
             <Routes>
-              <Route path="/" element={<Index />} />
-              <Route path="/resource/:id" element={<ResourceDetail />} />
-              <Route path="/upload" element={<Upload />} />
-              <Route path="/saved" element={<Saved />} />
-              <Route path="/channels" element={<Channels />} />
-              <Route path="/channels/:id" element={<ChannelChat />} />
-              <Route path="/profile" element={<Profile />} />
+              <Route path="/" element={<ProtectedRoute><Index /></ProtectedRoute>} />
+              <Route path="/resource/:id" element={<ProtectedRoute><ResourceDetail /></ProtectedRoute>} />
+              <Route path="/upload" element={<ProtectedRoute><Upload /></ProtectedRoute>} />
+              <Route path="/saved" element={<ProtectedRoute><Saved /></ProtectedRoute>} />
+              <Route path="/channels" element={<ProtectedRoute><Channels /></ProtectedRoute>} />
+              <Route path="/channels/:id" element={<ProtectedRoute><ChannelChat /></ProtectedRoute>} />
+              <Route path="/profile" element={<ProtectedRoute><Profile /></ProtectedRoute>} />
               <Route path="/auth" element={<Auth />} />
               <Route path="*" element={<NotFound />} />
             </Routes>
