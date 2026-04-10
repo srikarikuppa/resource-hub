@@ -1,54 +1,174 @@
 import { useParams, Link } from 'react-router-dom';
-import { ArrowLeft, Download, Bookmark, Star, FileText, User, Calendar, HardDrive, Plus } from 'lucide-react';
-import { mockReviews } from '@/lib/mock-data';
+import { ArrowLeft, Download, Bookmark, FileText, User, Calendar, HardDrive, Plus, Loader2, ThumbsUp, Trash2 } from 'lucide-react';
 import { useResources } from '@/lib/resource-context';
+import { useAuth } from '@/lib/auth-context';
 import { Button } from '@/components/ui/button';
 import { supabase } from '@/lib/supabase';
 import type { Resource } from '@/lib/mock-data';
 import { useState, useEffect } from 'react';
+import { toast } from 'sonner';
+
+interface ReviewData {
+  id: string;
+  user_name: string;
+  rating: number;
+  comment: string;
+  created_at: string;
+  likes: number;
+  user_id: string;
+  liked_by: string[];
+}
 
 const ResourceDetail = () => {
   const { id } = useParams<{ id: string }>();
   const [resource, setResource] = useState<Resource | null>(null);
   const [isLoading, setIsLoading] = useState(true);
-  const reviews = mockReviews.filter(r => r.resourceId === id);
+  const [reviews, setReviews] = useState<ReviewData[]>([]);
+  const [isPosting, setIsPosting] = useState(false);
   const { toggleSave, isSaved } = useResources();
   const saved = resource ? isSaved(resource.id) : false;
   const [comment, setComment] = useState('');
+  const { user } = useAuth();
 
   useEffect(() => {
-    const fetchResource = async () => {
+    const fetchResourceAndReviews = async () => {
       if (!id) return;
       setIsLoading(true);
-      const { data, error } = await supabase
+      
+      const { data: resourceData, error: resourceError } = await supabase
         .from('resources')
         .select('*')
         .eq('id', id)
         .single();
 
-      if (!error && data) {
+      if (!resourceError && resourceData) {
         setResource({
-          id: data.id,
-          title: data.title,
-          type: data.type,
-          year: data.year,
-          branch: data.branch,
-          subject: data.subject,
-          uploadedBy: data.description?.includes('Uploaded by') ? data.description.split('Uploaded by ')[1] : 'Anonymous',
-          fileSize: data.file_size,
-          fileUrl: data.file_url,
+          id: resourceData.id,
+          title: resourceData.title,
+          type: resourceData.type,
+          year: resourceData.year,
+          branch: resourceData.branch,
+          subject: resourceData.subject,
+          uploadedBy: resourceData.description?.includes('Uploaded by') ? resourceData.description.split('Uploaded by ')[1] : 'Anonymous',
+          fileSize: resourceData.file_size,
+          fileUrl: resourceData.file_url,
           rating: 4.5,
           downloads: 42,
           reviewCount: 15,
-          description: data.description,
-          uploadDate: new Date(data.created_at).toLocaleDateString()
+          description: resourceData.description,
+          uploadDate: new Date(resourceData.created_at).toLocaleDateString()
         });
       }
+
+      const { data: reviewsData, error: reviewsError } = await supabase
+        .from('reviews')
+        .select('*')
+        .eq('resource_id', id)
+        .order('created_at', { ascending: false });
+
+      if (!reviewsError && reviewsData) {
+        setReviews(reviewsData);
+      }
+      
       setIsLoading(false);
     };
 
-    fetchResource();
+    fetchResourceAndReviews();
   }, [id]);
+
+  const handlePostReview = async () => {
+    if (!id || !comment.trim()) return;
+    if (!user) {
+      toast.error('You must be logged in to post a review');
+      return;
+    }
+    
+    setIsPosting(true);
+    const newReview = {
+      resource_id: id,
+      user_id: user.uid,
+      user_name: user.displayName || user.email?.split('@')[0] || 'Anonymous User',
+      rating: 5,
+      comment: comment.trim(),
+    };
+
+    const { data: insertedReview, error } = await supabase
+      .from('reviews')
+      .insert(newReview)
+      .select()
+      .single();
+
+    if (error) {
+      toast.error('Failed to post review. Make sure you ran the SQL script.');
+      console.error('Error posting review:', error);
+    } else if (insertedReview) {
+      setReviews([insertedReview, ...reviews]);
+      setComment('');
+      toast.success('Review posted successfully!');
+    }
+    
+    setIsPosting(false);
+  };
+
+  const handleLikeReview = async (reviewId: string, currentLikes: number, likedBy: string[] | undefined) => {
+    if (!user) {
+      toast.error('You must be logged in to like a comment');
+      return;
+    }
+    
+    // Ensure likedBy is an array
+    const currentLikedBy = likedBy || [];
+    const hasLiked = currentLikedBy.includes(user.uid);
+
+    let newLikedBy;
+    let newLikesCount;
+
+    if (hasLiked) {
+      // Unlike
+      newLikedBy = currentLikedBy.filter(id => id !== user.uid);
+      newLikesCount = Math.max(0, (currentLikes || 0) - 1);
+    } else {
+      // Like
+      newLikedBy = [...currentLikedBy, user.uid];
+      newLikesCount = (currentLikes || 0) + 1;
+    }
+
+    // Optimistic update
+    setReviews(reviews.map(r => 
+      r.id === reviewId ? { ...r, likes: newLikesCount, liked_by: newLikedBy } : r
+    ));
+
+    const { error } = await supabase
+      .from('reviews')
+      .update({ likes: newLikesCount, liked_by: newLikedBy })
+      .eq('id', reviewId);
+
+    if (error) {
+      // Revert on error
+      setReviews(reviews.map(r => 
+        r.id === reviewId ? { ...r, likes: currentLikes, liked_by: currentLikedBy } : r
+      ));
+      toast.error('Failed to update like');
+    }
+  };
+
+  const handleDeleteReview = async (reviewId: string) => {
+    if (!user) return;
+    const previousReviews = [...reviews];
+    setReviews(reviews.filter(r => r.id !== reviewId));
+
+    const { error } = await supabase
+      .from('reviews')
+      .delete()
+      .eq('id', reviewId);
+
+    if (error) {
+      setReviews(previousReviews);
+      toast.error('Failed to delete comment');
+    } else {
+      toast.success('Comment deleted successfully');
+    }
+  };
 
   if (isLoading) {
     return (
@@ -145,15 +265,29 @@ const ResourceDetail = () => {
               {reviews.map(review => (
                 <div key={review.id} className="rounded-lg bg-muted/30 p-4">
                   <div className="flex items-center justify-between mb-1.5">
-                    <span className="text-sm font-medium text-foreground">{review.userName}</span>
-                    <div className="flex items-center gap-1">
-                      {Array.from({ length: 5 }).map((_, i) => (
-                        <Star key={i} className="h-3.5 w-3.5" fill={i < review.rating ? '#f59e0b' : 'none'} color={i < review.rating ? '#f59e0b' : 'hsl(var(--muted-foreground))'} />
-                      ))}
+                    <span className="text-sm font-medium text-foreground">{review.user_name}</span>
+                    <div className="flex items-center gap-3">
+                      <button 
+                        onClick={() => handleLikeReview(review.id, review.likes, review.liked_by)}
+                        className={`flex items-center gap-1.5 text-xs transition-colors ${user && review.liked_by?.includes(user.uid) ? 'text-primary' : 'text-muted-foreground hover:text-primary'}`}
+                      >
+                        <ThumbsUp className={`h-3.5 w-3.5 ${user && review.liked_by?.includes(user.uid) ? "fill-current" : ""}`} />
+                        <span>{review.likes || 0}</span>
+                      </button>
+                      
+                      {user && (!review.user_id || review.user_id === user.uid) && (
+                        <button
+                          onClick={() => handleDeleteReview(review.id)}
+                          className="flex items-center justify-center text-muted-foreground hover:text-destructive transition-colors p-1"
+                          title="Delete comment"
+                        >
+                          <Trash2 className="h-3.5 w-3.5" />
+                        </button>
+                      )}
                     </div>
                   </div>
                   <p className="text-sm text-muted-foreground">{review.comment}</p>
-                  <span className="text-xs text-muted-foreground/70 mt-1 block">{review.date}</span>
+                  <span className="text-xs text-muted-foreground/70 mt-1 block">{new Date(review.created_at).toLocaleDateString()}</span>
                 </div>
               ))}
             </div>
@@ -167,9 +301,12 @@ const ResourceDetail = () => {
               placeholder="Add a comment…"
               value={comment}
               onChange={e => setComment(e.target.value)}
+              onKeyDown={e => e.key === 'Enter' && !isPosting && handlePostReview()}
               className="flex-1 rounded-lg border border-border bg-background px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-ring/40 transition-all"
             />
-            <Button size="sm" disabled={!comment.trim()}>Post</Button>
+            <Button size="sm" onClick={handlePostReview} disabled={!comment.trim() || isPosting}>
+              {isPosting ? <Loader2 className="h-4 w-4 animate-spin" /> : 'Post'}
+            </Button>
           </div>
         </div>
       </div>
