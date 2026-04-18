@@ -6,6 +6,7 @@ export interface Resource {
   branch: string;
   subject: string;
   uploadedBy: string;
+  uploadedByUid?: string;
   uploadDate: string;
   downloads: number;
   rating: number;

@@ -1,7 +1,10 @@
-import { Link } from 'react-router-dom';
-import { FileText, Presentation, BookOpen, ClipboardList, FlaskConical, HelpCircle, Download, Star, Bookmark } from 'lucide-react';
+import { useNavigate } from 'react-router-dom';
+import { FileText, Presentation, BookOpen, ClipboardList, FlaskConical, HelpCircle, Download, Star, Bookmark, Trash } from 'lucide-react';
 import type { Resource } from '@/lib/mock-data';
 import { useResources } from '@/lib/resource-context';
+import { useAuth } from '@/lib/auth-context';
+import { supabase } from '@/lib/supabase';
+import { toast } from 'sonner';
 
 const typeIcons: Record<string, typeof FileText> = {
   pdf: FileText,
@@ -25,25 +28,78 @@ const ResourceCard = ({ resource }: { resource: Resource }) => {
   const Icon = typeIcons[resource.type] || FileText;
   const colorClass = typeColors[resource.type] || 'bg-muted text-muted-foreground';
   const { toggleSave, isSaved } = useResources();
+  const { user } = useAuth();
+  const navigate = useNavigate();
   const saved = isSaved(resource.id);
 
+  const handleDelete = async (e: React.MouseEvent) => {
+    e.preventDefault();
+    e.stopPropagation();
+    const toastId = toast.loading('Deleting resource...');
+    try {
+      // 1. Delete from Database explicitly returning the deleted row
+      const { data, error } = await supabase
+        .from('resources')
+        .delete()
+        .eq('id', resource.id)
+        .select('*');
+      
+      if (error) throw error;
+      
+      if (!data || data.length === 0) {
+        throw new Error("Supabase rejected the deletion. Check your Row Level Security (RLS) policies.");
+      }
+
+      // 2. Delete the actual file from Supabase Storage
+      if (resource.fileUrl) {
+        try {
+          // Extract everything after '/resources/' in the public URL
+          const urlParts = resource.fileUrl.split('/resources/');
+          if (urlParts.length > 1) {
+            const bucketPath = urlParts[1];
+            await supabase.storage.from('resources').remove([bucketPath]);
+          }
+        } catch (storageErr) {
+          console.error("Storage delete failed (non-fatal):", storageErr);
+        }
+      }
+
+      toast.success('Resource and file permanently deleted!', { id: toastId });
+      setTimeout(() => window.location.reload(), 1000);
+    } catch(err: any) {
+      console.error("Delete Error:", err);
+      toast.error(err.message || 'Failed to delete resource', { id: toastId });
+    }
+  };
+
   return (
-    <Link
-      to={`/resource/${resource.id}`}
-      className="group block rounded-xl border border-border bg-card p-5 shadow-soft transition-all hover:shadow-soft-lg hover:-translate-y-0.5 active:scale-[0.98]"
+    <div
+      onClick={() => navigate(`/resource/${resource.id}`)}
+      className="group block rounded-xl border border-border bg-card p-5 shadow-soft transition-all hover:shadow-soft-lg hover:-translate-y-0.5 active:scale-[0.98] cursor-pointer"
     >
       <div className="flex items-start justify-between gap-3 mb-3">
         <div className={`flex h-10 w-10 shrink-0 items-center justify-center rounded-lg ${colorClass}`}>
           <Icon className="h-5 w-5" />
         </div>
-        <button
-          onClick={e => { e.preventDefault(); e.stopPropagation(); toggleSave(resource.id); }}
-          className={`shrink-0 rounded-lg p-1.5 transition-colors active:scale-[0.9] ${
-            saved ? 'text-primary' : 'text-muted-foreground hover:text-foreground'
-          }`}
-        >
-          <Bookmark className="h-4 w-4" fill={saved ? 'currentColor' : 'none'} />
-        </button>
+        <div className="flex items-center gap-1.5">
+          {user?.uid === resource.uploadedByUid && (
+            <button
+              onClick={handleDelete}
+              className="shrink-0 rounded-lg p-1.5 transition-colors text-red-500 hover:bg-red-50 active:scale-[0.9]"
+              title="Delete Resource"
+            >
+              <Trash className="h-4 w-4" />
+            </button>
+          )}
+          <button
+            onClick={e => { e.preventDefault(); e.stopPropagation(); toggleSave(resource.id); }}
+            className={`shrink-0 rounded-lg p-1.5 transition-colors active:scale-[0.9] ${
+              saved ? 'text-primary' : 'text-muted-foreground hover:text-foreground'
+            }`}
+          >
+            <Bookmark className="h-4 w-4" fill={saved ? 'currentColor' : 'none'} />
+          </button>
+        </div>
       </div>
 
       <h3 className="text-sm font-semibold text-foreground leading-snug mb-1.5 line-clamp-2 group-hover:text-primary transition-colors">
@@ -92,7 +148,7 @@ const ResourceCard = ({ resource }: { resource: Resource }) => {
           )}
         </div>
       </div>
-    </Link>
+    </div>
   );
 };
 

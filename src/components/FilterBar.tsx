@@ -1,4 +1,4 @@
-import { YEARS, BRANCHES, SUBJECTS, RESOURCE_TYPES } from '@/lib/mock-data';
+import { YEARS, BRANCHES, RESOURCE_TYPES } from '@/lib/mock-data';
 
 interface FilterBarProps {
   year: string;
@@ -9,6 +9,7 @@ interface FilterBarProps {
   onBranchChange: (v: string) => void;
   onSubjectChange: (v: string) => void;
   onTypeChange: (v: string) => void;
+  dynamicSubjects?: string[];
 }
 
 const selectClass =
@@ -17,8 +18,8 @@ const selectClass =
 const FilterBar = ({
   year, branch, subject, type,
   onYearChange, onBranchChange, onSubjectChange, onTypeChange,
+  dynamicSubjects = []
 }: FilterBarProps) => {
-  const subjects = branch && branch !== 'all' ? SUBJECTS[branch] || [] : [];
 
   return (
     <div className="flex flex-wrap gap-3">
@@ -32,9 +33,9 @@ const FilterBar = ({
         {BRANCHES.map(b => <option key={b} value={b}>{b}</option>)}
       </select>
 
-      <select value={subject} onChange={e => onSubjectChange(e.target.value)} className={selectClass} disabled={!subjects.length}>
+      <select value={subject} onChange={e => onSubjectChange(e.target.value)} className={selectClass} disabled={!dynamicSubjects.length}>
         <option value="all">All Subjects</option>
-        {subjects.map(s => <option key={s} value={s}>{s}</option>)}
+        {dynamicSubjects.map(s => <option key={s} value={s}>{s}</option>)}
       </select>
 
       <select value={type} onChange={e => onTypeChange(e.target.value)} className={selectClass}>
@@ -48,3 +49,4 @@ const FilterBar = ({
 };
 
 export default FilterBar;
+

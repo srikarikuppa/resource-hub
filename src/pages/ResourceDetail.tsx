@@ -248,11 +248,28 @@ const ResourceDetail = () => {
           </div>
         </div>
 
-        {/* Preview placeholder */}
-        <div className="rounded-xl border border-border bg-card p-12 text-center mb-6 animate-fade-up stagger-1">
-          <FileText className="h-12 w-12 mx-auto text-muted-foreground/40 mb-3" />
-          <p className="text-sm text-muted-foreground">Document preview will appear here</p>
-        </div>
+        {/* Dynamic Document Preview */}
+        {resource.fileUrl ? (
+          <div className="rounded-xl border border-border bg-card p-1 shadow-soft mb-6 animate-fade-up stagger-1 overflow-hidden">
+            {['png', 'jpg', 'jpeg', 'gif', 'webp'].includes(resource.fileUrl.split('?')[0].split('.').pop()?.toLowerCase() || '') ? (
+              <img src={resource.fileUrl} alt={resource.title} className="w-full max-h-[600px] object-contain rounded-lg bg-muted/20" />
+            ) : ['pdf'].includes(resource.fileUrl.split('?')[0].split('.').pop()?.toLowerCase() || '') ? (
+              <iframe src={resource.fileUrl} className="w-full h-[600px] rounded-lg border-0 bg-muted/10" title="PDF Preview" />
+            ) : ['doc', 'docx', 'ppt', 'pptx', 'xls', 'xlsx', 'txt'].includes(resource.fileUrl.split('?')[0].split('.').pop()?.toLowerCase() || '') ? (
+              <iframe src={`https://docs.google.com/viewer?url=${encodeURIComponent(resource.fileUrl)}&embedded=true`} className="w-full h-[600px] rounded-lg border-0 bg-muted/10" title="Office Preview" />
+            ) : (
+              <div className="p-12 text-center text-muted-foreground">
+                <FileText className="h-12 w-12 mx-auto text-muted-foreground/40 mb-3" />
+                Preview not dynamically available for this format. Please download it directly.
+              </div>
+            )}
+          </div>
+        ) : (
+          <div className="rounded-xl border border-border bg-card p-12 text-center mb-6 animate-fade-up stagger-1">
+            <FileText className="h-12 w-12 mx-auto text-muted-foreground/40 mb-3" />
+            <p className="text-sm text-muted-foreground">No file attached to this resource.</p>
+          </div>
+        )}
 
         {/* Reviews */}
         <div className="rounded-xl border border-border bg-card p-6 animate-fade-up stagger-2">

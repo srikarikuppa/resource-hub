@@ -3,7 +3,7 @@ import { useSearchParams, Link } from 'react-router-dom';
 import { Plus } from 'lucide-react';
 import ResourceCard from '@/components/ResourceCard';
 import FilterBar from '@/components/FilterBar';
-import { Resource } from '@/lib/mock-data';
+import { Resource, SUBJECTS } from '@/lib/mock-data';
 import { supabase } from '@/lib/supabase';
 import { useEffect } from 'react';
 
@@ -38,6 +38,7 @@ const Home = () => {
           branch: r.branch,
           subject: r.subject,
           uploadedBy: r.description?.includes('Uploaded by') ? r.description.split('Uploaded by ')[1] : 'Unknown',
+          uploadedByUid: r.uploaded_by,
           uploadDate: new Date(r.created_at).toISOString().split('T')[0],
           downloads: 0,
           rating: 0,
@@ -53,6 +54,20 @@ const Home = () => {
 
     fetchResources();
   }, []);
+
+  const availableSubjects = useMemo(() => {
+    let mockData: string[] = [];
+    if (branch !== 'all') {
+      mockData = SUBJECTS[branch] || [];
+    }
+    
+    const uploadedSubjects = resources
+      .filter(r => branch === 'all' || r.branch === branch)
+      .map(r => r.subject)
+      .filter(Boolean);
+      
+    return Array.from(new Set([...mockData, ...uploadedSubjects])).sort();
+  }, [resources, branch]);
 
   const filtered = useMemo(() => {
     return resources.filter(r => {
@@ -87,6 +102,7 @@ const Home = () => {
           year={year} branch={branch} subject={subject} type={type}
           onYearChange={setYear} onBranchChange={setBranch}
           onSubjectChange={setSubject} onTypeChange={setType}
+          dynamicSubjects={availableSubjects}
         />
       </div>
 
