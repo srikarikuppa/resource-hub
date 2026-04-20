@@ -1,14 +1,17 @@
 import { useState, useMemo } from 'react';
-import { useSearchParams, Link } from 'react-router-dom';
-import { Plus } from 'lucide-react';
+import { useSearchParams, Link, useNavigate } from 'react-router-dom';
+import { Plus, Sparkles, X, Brain } from 'lucide-react';
 import ResourceCard from '@/components/ResourceCard';
 import FilterBar from '@/components/FilterBar';
 import { Resource, SUBJECTS } from '@/lib/mock-data';
 import { supabase } from '@/lib/supabase';
 import { useEffect } from 'react';
+// AI search logic moved to secure backend to protect credentials
+import { toast } from 'sonner';
 
 const Home = () => {
   const [searchParams] = useSearchParams();
+  const navigate = useNavigate();
   const searchQuery = searchParams.get('search') || '';
 
   const [year, setYear] = useState('all');
@@ -17,6 +20,10 @@ const Home = () => {
   const [type, setType] = useState('all');
   const [resources, setResources] = useState<Resource[]>([]);
   const [isLoading, setIsLoading] = useState(true);
+  const [isAILoading, setIsAILoading] = useState(false);
+  const [aiHighlightedIds, setAiHighlightedIds] = useState<string[] | null>(null);
+  const [aiReason, setAiReason] = useState<string | null>(null);
+  const [searchSource, setSearchSource] = useState<'AI' | 'LOCAL' | null>(null);
 
   useEffect(() => {
     const fetchResources = async () => {
@@ -55,6 +62,68 @@ const Home = () => {
     fetchResources();
   }, []);
 
+  useEffect(() => {
+    const isSemantic = searchParams.get('mode') === 'semantic';
+    
+    if (isSemantic && searchQuery && resources.length > 0) {
+      performSemanticSearch(searchQuery);
+    } else {
+      // Very important: explicitly clear these to ensure the dashboard reverts to normal view
+      setAiHighlightedIds(null);
+      setAiReason(null);
+      setIsAILoading(false);
+    }
+  }, [searchQuery, searchParams, resources.length]);
+
+  const performSemanticSearch = async (query: string) => {
+    setIsAILoading(true);
+    setAiHighlightedIds([]);
+    setAiReason(null);
+
+    const catalogData = resources.map(r => ({
+      id: r.id,
+      title: r.title,
+      subject: r.subject,
+      branch: r.branch,
+      description: r.description,
+      type: r.type
+    }));
+
+    try {
+      const response = await fetch("http://localhost:3001/api/search", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ query, catalog: catalogData })
+      });
+
+      if (!response.ok) {
+        const errorData = await response.json();
+        throw new Error(errorData.error || "Backend search failed");
+      }
+
+      const data = await response.json();
+      setAiHighlightedIds(data.ids || []);
+      setAiReason(data.reason || null);
+      setSearchSource(data.source || 'AI');
+      
+      if (data.ids.length === 0) {
+        toast.info("AI couldn't find an exact semantic match, try a broader description.");
+      }
+    } catch (err: any) {
+      console.error("Semantic Search Error:", err);
+      setAiHighlightedIds(null);
+      
+      const errorMsg = err.message || "";
+      if (errorMsg.includes("429")) {
+        toast.error("AI Quota Exceeded. Please wait a minute.");
+      } else {
+        toast.error(`AI Search Error: ${errorMsg || "Check if backend is running."}`);
+      }
+    } finally {
+      setIsAILoading(false);
+    }
+  };
+
   const availableSubjects = useMemo(() => {
     let mockData: string[] = [];
     if (branch !== 'all') {
@@ -70,6 +139,11 @@ const Home = () => {
   }, [resources, branch]);
 
   const filtered = useMemo(() => {
+    // If we have AI highlights, show ONLY those
+    if (aiHighlightedIds !== null) {
+      return resources.filter(r => aiHighlightedIds.includes(r.id));
+    }
+
     return resources.filter(r => {
       if (year !== 'all' && r.year !== year) return false;
       if (branch !== 'all' && r.branch !== branch) return false;
@@ -82,7 +156,7 @@ const Home = () => {
       }
       return true;
     });
-  }, [year, branch, subject, type, searchQuery, resources]);
+  }, [year, branch, subject, type, searchQuery, resources, aiHighlightedIds]);
 
   return (
     <div className="container py-8">
@@ -104,9 +178,46 @@ const Home = () => {
           onSubjectChange={setSubject} onTypeChange={setType}
           dynamicSubjects={availableSubjects}
         />
+        
+        {aiReason && (
+          <div className="mt-4 flex items-center justify-between rounded-xl border border-primary/20 bg-primary/5 p-4 animate-fade-in shadow-sm">
+            <div className="flex items-center gap-3">
+              <div className={`flex h-8 w-8 items-center justify-center rounded-lg ${searchSource === 'LOCAL' ? 'bg-blue-500/10 text-blue-500' : 'bg-primary/10 text-primary'}`}>
+                {searchSource === 'LOCAL' ? (
+                  <Brain className="h-4 w-4" />
+                ) : (
+                  <Sparkles className="h-4 w-4" />
+                )}
+              </div>
+              <p className="text-sm font-medium text-foreground">
+                <span className={searchSource === 'LOCAL' ? 'text-blue-500 mr-1' : 'text-primary mr-1'}>
+                  {searchSource === 'LOCAL' ? 'Keyword Match:' : 'AI Reasoning:'}
+                </span>
+                {aiReason}
+              </p>
+            </div>
+            <button 
+              onClick={() => { setAiHighlightedIds(null); setAiReason(null); }}
+              className="rounded-full p-1 text-muted-foreground hover:bg-muted hover:text-foreground transition-colors"
+            >
+              <X className="h-4 w-4" />
+            </button>
+          </div>
+        )}
       </div>
 
-      {isLoading ? (
+      {isAILoading ? (
+        <div className="flex flex-col items-center justify-center py-20 text-center animate-fade-in">
+          <div className="relative mb-6">
+             <div className="absolute inset-0 animate-ping rounded-full bg-primary/20 scale-150"></div>
+             <div className="relative flex h-16 w-16 items-center justify-center rounded-full bg-primary text-primary-foreground shadow-glow">
+                <Brain className="h-8 w-8" />
+             </div>
+          </div>
+          <h3 className="text-lg font-semibold text-foreground mb-1">AI is thinking...</h3>
+          <p className="text-sm text-muted-foreground max-w-xs">Scanning the entire catalog to find your specific request.</p>
+        </div>
+      ) : isLoading ? (
         <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
           {[...Array(8)].map((_, i) => (
             <div key={i} className="h-[200px] rounded-2xl bg-muted animate-pulse" />
@@ -116,7 +227,10 @@ const Home = () => {
         <div className="flex flex-col items-center justify-center py-20 text-center animate-fade-in">
           <p className="text-muted-foreground mb-2">No resources match your filters.</p>
           <button
-            onClick={() => { setYear('all'); setBranch('all'); setSubject('all'); setType('all'); }}
+            onClick={() => { 
+                setYear('all'); setBranch('all'); setSubject('all'); setType('all');
+                navigate('/');
+            }}
             className="text-sm text-primary hover:underline"
           >
             Clear all filters

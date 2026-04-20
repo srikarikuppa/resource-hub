@@ -6,7 +6,7 @@ import { YEARS, BRANCHES, SUBJECTS } from '@/lib/mock-data';
 import { toast } from 'sonner';
 import { supabase } from '@/lib/supabase';
 import { useAuth } from '@/lib/auth-context';
-import { GoogleGenerativeAI } from '@google/generative-ai';
+// AI scanning logic moved to secure backend to protect credentials
 import JSZip from 'jszip';
 
 const selectClass =
@@ -57,38 +57,16 @@ const scanDocument = async (file: File, title: string, subject: string): Promise
     throw new Error(`File type (${file.type || 'unknown'}) is not supported by our AI scanner. Please upload PDF, DOCX, PPTX, plain text, or standard images.`);
   }
 
-  const apiKey = import.meta.env.VITE_GEMINI_API_KEY;
-  if (!apiKey) {
-    throw new Error("Gemini API key is missing! If you just added it, please restart your Vite dev server.");
-  }
-
   toast.loading(`AI Gatekeeper is deeply scanning your file for relevance to "${subject}"...`, { id: 'ai-scan' });
 
   try {
-    const genAI = new GoogleGenerativeAI(apiKey);
-    const model = genAI.getGenerativeModel({ model: "gemini-2.5-flash" });
+    let contentParts: any[] = [];
 
-    const promptText = `You are a strict content moderator for a college resource-sharing platform. 
-The user is attempting to upload a document for the academic subject: "${subject}". 
-The provided title is: "${title}". 
-
-You MUST carefully analyze the ACTUAL physical content inside the uploaded file.
-Does the internal content of the file actually contain rigorous academic material (e.g. handwritten notes, typed lecture notes, syllabus, past exams, study guides) that is heavily relevant to the subject "${subject}"?
-If the file is an event poster, a promotional flyer, an advertisement, a meme, random photography, or completely irrelevant to "${subject}", YOU MUST REJECT IT regardless of what the title says.
-
-If the internal content is valid academic material relevant to the subject, reply EXACTLY with the word 'APPROVED'.
-If the content is irrelevant, a poster, a flyer, or not related to the subject, reply EXACTLY with 'REJECTED:' followed by a specific reason citing exactly what you saw in the content.`;
-
-    let contentParts: any[] = [promptText];
-
-    // If it's a binary office file, Gemini hates inlineData for it, so we extract the raw text ourselves first!
     if (isOfficeFile) {
       const extractedText = await extractOfficeText(file);
-      if (!extractedText) throw new Error("Could not extract text from this document for AI scanning. The file might be corrupted or empty.");
-      
-      contentParts.push({ text: `\n\n[START OF EXTRACTED DOCUMENT TEXT]\n${extractedText}\n[END OF EXTRACTED DOCUMENT TEXT]\n` });
+      if (!extractedText) throw new Error("Could not extract text from this document for AI scanning.");
+      contentParts.push({ text: `\n\n[FILE: ${file.name}]\n[TITLE: ${title}]\n[EXTRACTED TEXT]:\n${extractedText}\n` });
     } else {
-      // It's a standard PDF or Image, let Gemini natively scan it via inlineData
       const mimeType = file.type === '' && file.name.endsWith('.txt') ? 'text/plain' : file.type;
       const base64Data = await fileToBase64(file);
       contentParts.push({
@@ -99,26 +77,35 @@ If the content is irrelevant, a poster, a flyer, or not related to the subject, 
       });
     }
 
-    const result = await model.generateContent(contentParts);
+    const response = await fetch("http://localhost:3001/api/scan", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ parts: contentParts, subject })
+    });
 
     toast.dismiss('ai-scan');
-    
-    const textResp = result.response.text().trim();
 
-    if (!textResp.toUpperCase().includes('APPROVED')) {
-      const reason = textResp.replace(/REJECTED:/i, '').trim();
-      throw new Error(`AI Rejected: ${reason || textResp}`);
+    if (!response.ok) {
+      const errorData = await response.json();
+      throw new Error(errorData.error || "Backend verification failed");
     }
+
+    const data = await response.json();
     
-    return true;
+    if (data.isAcademic && data.isSafe) {
+      if (data.source === 'LOCAL') {
+        toast.success("Local Validation Passed: Academic content detected. 🔍");
+      } else {
+        toast.success("AI Validation Passed: Rigorous academic content detected. ✨");
+      }
+      return true;
+    } else {
+      throw new Error(`Rejected: ${data.summary || "This document does not meet our academic standards."}`);
+    }
 
   } catch (err: any) {
     toast.dismiss('ai-scan');
-    if (err.message && err.message.includes('AI Rejected')) {
-      throw err; // Pass through our deliberate AI rejection
-    }
-    console.error("Gemini SDK Error:", err);
-    throw new Error(`Gemini API Error: ${err.message || 'Unknown verification error'}`);
+    throw err;
   }
 };
 
