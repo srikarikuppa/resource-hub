@@ -177,7 +177,7 @@ app.use(express.static(path.join(__dirname, '../dist')));
 // ... existing routes ...
 
 // Catch-all route to serve the frontend for any non-API requests (SPA support)
-app.get('/*splat', (req, res) => {
+app.get('/{*splat}', (req, res) => {
   if (!req.path.startsWith('/api')) {
     res.sendFile(path.join(__dirname, '../dist/index.html'));
   }
