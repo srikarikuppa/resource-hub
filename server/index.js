@@ -177,9 +177,17 @@ app.use(express.static(path.join(__dirname, '../dist')));
 // ... existing routes ...
 
 // Catch-all route to serve the frontend for any non-API requests (SPA support)
-app.get('/{*splat}', (req, res) => {
-  if (!req.path.startsWith('/api')) {
-    res.sendFile(path.join(__dirname, '../dist/index.html'));
+app.use((req, res, next) => {
+  if (req.method === 'GET' && !req.path.startsWith('/api')) {
+    const indexPath = path.join(__dirname, '../dist/index.html');
+    res.sendFile(indexPath, (err) => {
+      if (err) {
+        console.error("Index.html not found at:", indexPath);
+        res.status(404).send("Front-end build (dist/index.html) not found. Did you run 'npm run build'?");
+      }
+    });
+  } else {
+    next();
   }
 });
 
