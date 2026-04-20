@@ -11,8 +11,14 @@ const firebaseConfig = {
   appId: import.meta.env.VITE_FIREBASE_APP_ID
 };
 
+const hasFirebaseKeys = firebaseConfig.apiKey && firebaseConfig.appId;
+
+if (!hasFirebaseKeys) {
+  console.error("❌ FIREBASE KEYS MISSING! Google Login will not work. Add them to your Render Environment Variables.");
+}
+
 // Initialize Firebase
-const app = initializeApp(firebaseConfig);
-const auth = getAuth(app);
+const app = hasFirebaseKeys ? initializeApp(firebaseConfig) : null;
+const auth = app ? getAuth(app) : (null as any);
 
 export { app, auth };
