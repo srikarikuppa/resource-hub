@@ -66,9 +66,9 @@ const ResourceCard = ({ resource }: { resource: Resource }) => {
 
       toast.success('Resource and file permanently deleted!', { id: toastId });
       setTimeout(() => window.location.reload(), 1000);
-    } catch(err: any) {
-      console.error("Delete Error:", err);
-      toast.error(err.message || 'Failed to delete resource', { id: toastId });
+    } catch (error: unknown) {
+      console.error("Delete Error:", error);
+      toast.error((error as Error).message || 'Failed to delete resource', { id: toastId });
     }
   };
 

@@ -6,11 +6,18 @@ import { useResources } from '@/lib/resource-context';
 import { useAuth } from '@/lib/auth-context';
 import { supabase } from '@/lib/supabase';
 
+interface Resource {
+  id: string;
+  title: string;
+  subject: string;
+  created_at: string;
+}
+
 const Profile = () => {
   const { savedIds } = useResources();
   const { user, logout } = useAuth();
   const navigate = useNavigate();
-  const [userUploads, setUserUploads] = useState<any[]>([]);
+  const [userUploads, setUserUploads] = useState<Resource[]>([]);
   const [isLoading, setIsLoading] = useState(true);
 
   useEffect(() => {
@@ -25,7 +32,7 @@ const Profile = () => {
         .eq('uploaded_by', user.uid)
         .order('created_at', { ascending: false });
       
-      if (data) setUserUploads(data);
+      if (data) setUserUploads(data as Resource[]);
       setIsLoading(false);
     };
     fetchUploads();

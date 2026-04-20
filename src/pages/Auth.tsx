@@ -37,8 +37,9 @@ export default function Auth() {
         toast.success("Account created successfully!");
       }
       navigate("/");
-    } catch (error: any) {
-      toast.error(error.message || "Failed to authenticate");
+    } catch (error: unknown) {
+      const errorMsg = error instanceof Error ? error.message : 'Authentication failed';
+      toast.error(errorMsg);
     } finally {
       setIsLoading(false);
     }
@@ -51,8 +52,9 @@ export default function Auth() {
       await signInWithPopup(auth, provider);
       toast.success("Successfully signed in with Google!");
       navigate("/");
-    } catch (error: any) {
-      toast.error(error.message || "Failed to authenticate with Google");
+    } catch (error: unknown) {
+      const errorMsg = error instanceof Error ? error.message : 'Failed to authenticate with Google';
+      toast.error(errorMsg);
     } finally {
       setIsLoading(false);
     }

@@ -60,7 +60,7 @@ const scanDocument = async (file: File, title: string, subject: string): Promise
   toast.loading(`AI Gatekeeper is deeply scanning your file for relevance to "${subject}"...`, { id: 'ai-scan' });
 
   try {
-    let contentParts: any[] = [];
+    const contentParts: { text?: string, inlineData?: { data: string, mimeType: string } }[] = [];
 
     if (isOfficeFile) {
       const extractedText = await extractOfficeText(file);
@@ -77,7 +77,8 @@ const scanDocument = async (file: File, title: string, subject: string): Promise
       });
     }
 
-    const response = await fetch("http://localhost:3001/api/scan", {
+    const apiUrl = import.meta.env.VITE_API_URL || "http://localhost:3001";
+    const response = await fetch(`${apiUrl}/api/scan`, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ parts: contentParts, subject })
@@ -103,7 +104,7 @@ const scanDocument = async (file: File, title: string, subject: string): Promise
       throw new Error(`Rejected: ${data.summary || "This document does not meet our academic standards."}`);
     }
 
-  } catch (err: any) {
+  } catch (err: unknown) {
     toast.dismiss('ai-scan');
     throw err;
   }
@@ -196,9 +197,10 @@ const Upload = () => {
 
       toast.success('Resource uploaded successfully!', { id: toastId });
       setTitle(''); setDescription(''); setYear(''); setBranch(''); setSubject(''); setFile(null);
-    } catch (error: any) {
+    } catch (error: unknown) {
       console.error('Upload error:', error);
-      toast.error(error.message || 'Failed to upload resource', { id: toastId });
+      const errorMsg = error instanceof Error ? error.message : 'Failed to upload resource';
+      toast.error(errorMsg, { id: toastId });
     } finally {
       setIsScanning(false);
       setIsUploading(false);

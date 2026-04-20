@@ -1,7 +1,12 @@
 import express from 'express';
 import cors from 'cors';
 import dotenv from 'dotenv';
+import path from 'path';
+import { fileURLToPath } from 'url';
 import { GoogleGenerativeAI } from '@google/generative-ai';
+
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = path.dirname(__filename);
 
 dotenv.config();
 
@@ -163,6 +168,21 @@ app.post('/api/search', async (req, res) => {
   res.json(localKeywordSearch(query, catalog));
 });
 
+// --- Serve Frontend Static Files ---
+app.use(express.static(path.join(__dirname, '../dist')));
+
+// --- API Endpoints ---
+// (API routes go here, before the wildcard catch-all)
+
+// ... existing routes ...
+
+// Catch-all route to serve the frontend for any non-API requests (SPA support)
+app.get('*', (req, res) => {
+  if (!req.path.startsWith('/api')) {
+    res.sendFile(path.join(__dirname, '../dist/index.html'));
+  }
+});
+
 app.listen(port, () => {
-  console.log(`\n🚀 Bulletproof AI Bridge running on http://localhost:${port}`);
+  console.log(`\n🚀 Bulletproof AI Bridge running on port ${port}`);
 });

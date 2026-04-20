@@ -26,6 +26,7 @@ const Saved = () => {
         .in('id', Array.from(savedIds));
 
       if (!error && data) {
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
         const mapped = data.map((r: any) => ({
           id: r.id,
           title: r.title,

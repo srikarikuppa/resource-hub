@@ -3,14 +3,14 @@ import fs from 'fs';
 
 let apiKey = '';
 try {
-  const envFile = fs.readFileSync('.env', 'utf8');
-  const match = envFile.match(/VITE_GEMINI_API_KEY=(.*)/);
-  if (match) apiKey = match[1].trim().replace(/^['"]|['"]$/g, '');
-} catch(e) {}
+    const envFile = fs.readFileSync('.env', 'utf8');
+    const match = envFile.match();
+    if (match) apiKey = match[1].trim().replace(/^['"]|['"]$/g, '');
+} catch (e) { }
 
 if (!apiKey) {
-  console.log("API Key missing");
-  process.exit(1);
+    console.log("API Key missing");
+    process.exit(1);
 }
 
 const genAI = new GoogleGenerativeAI(apiKey);
@@ -32,7 +32,7 @@ async function testAll() {
             const model = genAI.getGenerativeModel({ model: m });
             await model.generateContent("say exactly OK");
             console.log(`[SUCCESS] ${m}`);
-        } catch(e) {
+        } catch (e) {
             console.log(`[FAILED] ${m} -> ${e.message.includes('[429') ? 'Quota Exceeded (429)' : e.message.includes('[404') ? 'Not Found (404)' : e.message.includes('[400') ? 'Bad Request (400) - API Key Invalid?' : e.message.includes('[403') ? 'Forbidden (403)' : e.message}`);
         }
     }
