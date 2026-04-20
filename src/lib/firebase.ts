@@ -3,12 +3,12 @@ import { getAuth } from "firebase/auth";
 
 // Your web app's Firebase configuration
 const firebaseConfig = {
-  apiKey: "AIzaSyBxjyUq74cTN7Odvsiz1IwP7wmf9uj_XIg",
-  authDomain: "campus-vault-be31d.firebaseapp.com",
-  projectId: "campus-vault-be31d",
-  storageBucket: "campus-vault-be31d.firebasestorage.app",
-  messagingSenderId: "219240002335",
-  appId: "1:219240002335:web:ee719c754d5ed91762362a"
+  apiKey: import.meta.env.VITE_FIREBASE_API_KEY,
+  authDomain: import.meta.env.VITE_FIREBASE_AUTH_DOMAIN,
+  projectId: import.meta.env.VITE_FIREBASE_PROJECT_ID,
+  storageBucket: import.meta.env.VITE_FIREBASE_STORAGE_BUCKET,
+  messagingSenderId: import.meta.env.VITE_FIREBASE_MESSAGING_SENDER_ID,
+  appId: import.meta.env.VITE_FIREBASE_APP_ID
 };
 
 // Initialize Firebase
