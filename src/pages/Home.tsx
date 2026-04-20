@@ -92,8 +92,8 @@ const Home = () => {
     }));
 
     try {
-      const apiUrl = import.meta.env.VITE_API_URL || "http://localhost:3001";
-      const response = await fetch(`${apiUrl}/api/search`, {
+      // Use relative path for production reliability
+      const response = await fetch('/api/search', {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ query, catalog: catalogData })

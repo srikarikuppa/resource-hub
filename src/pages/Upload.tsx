@@ -77,8 +77,8 @@ const scanDocument = async (file: File, title: string, subject: string): Promise
       });
     }
 
-    const apiUrl = import.meta.env.VITE_API_URL || "http://localhost:3001";
-    const response = await fetch(`${apiUrl}/api/scan`, {
+    // Use relative path for production reliability
+    const response = await fetch('/api/scan', {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ parts: contentParts, subject })
