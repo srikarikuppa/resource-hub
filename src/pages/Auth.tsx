@@ -29,6 +29,9 @@ export default function Auth() {
 
     setIsLoading(true);
     try {
+      if (!auth) {
+        throw new Error("Authentication service is not initialized. Please check your Firebase configuration.");
+      }
       if (isLogin) {
         await signInWithEmailAndPassword(auth, email, password);
         toast.success("Welcome back!");
@@ -48,6 +51,9 @@ export default function Auth() {
   const handleGoogleSignIn = async () => {
     setIsLoading(true);
     try {
+      if (!auth) {
+        throw new Error("Authentication service is not initialized. Please check your Firebase configuration.");
+      }
       const provider = new GoogleAuthProvider();
       await signInWithPopup(auth, provider);
       toast.success("Successfully signed in with Google!");

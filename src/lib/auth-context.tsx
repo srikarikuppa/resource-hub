@@ -34,6 +34,10 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
 
   const logout = async () => {
     try {
+      if (!auth) {
+        toast.error("Authentication service not initialized");
+        return;
+      }
       await signOut(auth);
       toast.success("Successfully logged out");
     } catch (error) {

@@ -29,7 +29,7 @@ const extractOfficeText = async (file: File): Promise<string> => {
   try {
     const zip = await JSZip.loadAsync(file);
     let fullText = '';
-    
+
     if (file.name.toLowerCase().endsWith('.docx')) {
       const docXml = await zip.file("word/document.xml")?.async("string");
       if (docXml) fullText = docXml.replace(/<[^>]+>/g, ' ');
@@ -92,7 +92,7 @@ const scanDocument = async (file: File, title: string, subject: string): Promise
     }
 
     const data = await response.json();
-    
+
     if (data.isAcademic && data.isSafe) {
       if (data.source === 'LOCAL') {
         toast.success("Local Validation Passed: Academic content detected. 🔍");
@@ -132,7 +132,7 @@ const Upload = () => {
       if (!user) toast.error('You must be logged in to upload resources');
       return;
     }
-    
+
     if (file && file.size > maxFileSize) {
       toast.error('File size limit exceeded. Please upload a file under 5MB.');
       return;
@@ -147,9 +147,13 @@ const Upload = () => {
         await scanDocument(file, title, subject);
         setIsScanning(false);
       }
-      
+
       setIsUploading(true);
       toastId = toast.loading('Uploading resource...');
+
+      if (!supabase) {
+        throw new Error("Cloud services are not initialized. Please check your Supabase configuration.");
+      }
 
       // 1. Upload file to Supabase Storage
       const fileExt = file.name.split('.').pop();
@@ -169,12 +173,12 @@ const Upload = () => {
 
       // 3. Detect type from extension
       const typeMap: Record<string, string> = {
-          pdf: 'pdf',
-          pptx: 'presentation',
-          ppt: 'presentation',
-          docx: 'notes',
-          doc: 'notes',
-          txt: 'notes'
+        pdf: 'pdf',
+        pptx: 'presentation',
+        ppt: 'presentation',
+        docx: 'notes',
+        doc: 'notes',
+        txt: 'notes'
       };
       const resourceType = typeMap[fileExt?.toLowerCase() || ''] || 'notes';
 
@@ -258,10 +262,10 @@ const Upload = () => {
             </div>
             <div>
               <label className="block text-sm font-medium text-foreground mb-1.5">Subject</label>
-              <input 
+              <input
                 list="subjects-list"
-                value={subject} 
-                onChange={e => setSubject(e.target.value)} 
+                value={subject}
+                onChange={e => setSubject(e.target.value)}
                 placeholder="Select or type a subject"
                 className={selectClass}
                 disabled={!branch}
@@ -289,7 +293,7 @@ const Upload = () => {
           </div>
 
           <Button type="submit" className="w-full" disabled={!canSubmit || isUploading || isScanning}>
-            <UploadIcon className={`${(isUploading || isScanning) ? 'animate-pulse' : ''} h-4 w-4 mr-2`} /> 
+            <UploadIcon className={`${(isUploading || isScanning) ? 'animate-pulse' : ''} h-4 w-4 mr-2`} />
             {isScanning ? 'AI Validating File...' : isUploading ? 'Uploading...' : 'Upload Resource'}
           </Button>
         </form>
