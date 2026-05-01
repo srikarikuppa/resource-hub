@@ -40,8 +40,24 @@ export default function Auth() {
         toast.success("Account created successfully!");
       }
       navigate("/");
-    } catch (error: unknown) {
-      const errorMsg = error instanceof Error ? error.message : 'Authentication failed';
+    } catch (error: any) {
+      console.error("Auth Error:", error.code, error.message);
+      let errorMsg = "Authentication failed. Please try again.";
+      
+      if (error.code === 'auth/invalid-credential') {
+        errorMsg = isLogin 
+          ? "Invalid email or password. Do you need to sign up first?" 
+          : "Invalid details provided for signup.";
+      } else if (error.code === 'auth/email-already-in-use') {
+        errorMsg = "This email is already registered. Try logging in instead.";
+      } else if (error.code === 'auth/weak-password') {
+        errorMsg = "Password should be at least 6 characters.";
+      } else if (error.code === 'auth/user-not-found') {
+        errorMsg = "No account found with this email. Please sign up.";
+      } else if (error.code === 'auth/operation-not-allowed') {
+        errorMsg = "Email/Password sign-in is not enabled in Firebase Console.";
+      }
+      
       toast.error(errorMsg);
     } finally {
       setIsLoading(false);

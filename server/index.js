@@ -20,39 +20,60 @@ const apiKey = process.env.GEMINI_API_KEY;
 const genAI = new GoogleGenerativeAI(apiKey || "");
 
 // --- Model Priority List ---
-const MODELS = ["gemini-2.0-flash", "gemini-flash-latest"];
+const MODELS = ["gemini-1.5-flash", "gemini-1.5-pro", "gemini-2.0-flash"];
 
 // --- Local Fallback Engines (Bulletproof) ---
 
-// 1. Local Search Engine (Weighted Keyword Matching)
+// 1. Local Search Engine (Weighted Keyword Matching & Phrase Matching)
 function localKeywordSearch(query, catalog) {
-  const q = query.toLowerCase();
-  const words = q.split(/\s+/).filter(w => w.length > 2);
+  const q = query.toLowerCase().trim();
+  
+  // Stop words to filter out for keyword matching
+  const STOP_WORDS = new Set(['i', 'want', 'related', 'find', 'show', 'give', 'please', 'with', 'from', 'each', 'very', 'this', 'that', 'the', 'and', 'for', 'a', 'an', 'in', 'of', 'to', 'is', 'it', 'my', 'your', 'notes', 'resource', 'document', 'file', 'sharing', 'hub']);
+  
+  // Extract keywords
+  const keywords = q.split(/\s+/).filter(w => w.length > 2 && !STOP_WORDS.has(w));
   
   const results = catalog.map(item => {
     let score = 0;
-    const text = `${item.title} ${item.subject} ${item.description} ${item.branch}`.toLowerCase();
-    
-    words.forEach(word => {
-      if (text.includes(word)) score += 1;
-      // Bonus for exact matches in title/subject
-      if (item.title.toLowerCase().includes(word)) score += 2;
-      if (item.subject.toLowerCase().includes(word)) score += 3;
+    const title = item.title.toLowerCase();
+    const subject = (item.subject || "").toLowerCase();
+    const desc = (item.description || "").toLowerCase();
+    const branch = (item.branch || "").toLowerCase();
+    const fullText = `${title} ${subject} ${desc} ${branch}`;
+
+    // 1. Exact Phrase Match (Huge Boost)
+    if (fullText.includes(q)) score += 50;
+
+    // 2. Keyword Match with Weighting
+    keywords.forEach(word => {
+      if (title.includes(word)) score += 10;
+      if (subject.includes(word)) score += 15; // Subjects are very important
+      if (desc.includes(word)) score += 2;
+      if (branch.includes(word)) score += 5;
     });
+
+    // 3. Penalty for very generic results if score is low
+    // If the only match was "notes" or similar common academic word, keep score low
+    if (keywords.length === 0 && score > 0) score = 1;
 
     return { ...item, score };
   });
 
-  const matchingIds = results
-    .filter(r => r.score > 0)
-    .sort((a, b) => b.score - a.score)
-    .map(r => r.id);
+  // Minimum relevance threshold to filter out garbage results
+  const minThreshold = 5; 
+  
+  const filteredResults = results
+    .filter(r => r.score >= minThreshold)
+    .sort((a, b) => b.score - a.score);
+
+  const matchingIds = filteredResults.map(r => r.id);
 
   return {
-    ids: matchingIds.slice(0, 8),
+    ids: matchingIds.slice(0, 12),
     reason: matchingIds.length > 0 
-      ? `Search results found via smart keyword matching for "${query}".`
-      : "No matching documents found in the current catalog.",
+      ? `Search results found via smart local matching for "${query}".`
+      : "No highly relevant documents found. Try using different keywords.",
     source: 'LOCAL'
   };
 }
@@ -127,7 +148,12 @@ Return ONLY a JSON object:
          return res.json({ ...data, source: 'AI' });
       }
     } catch (err) {
-      console.warn(`Model ${modelName} failed/quota hit. Trying next...`, err.message);
+      const errorMsg = err.message || String(err);
+      console.warn(`[AI Moderation] Model ${modelName} failed:`, errorMsg);
+      if (errorMsg.includes("leaked")) {
+        console.error("CRITICAL: Your Gemini API Key is leaked and blocked by Google.");
+        break; // Don't keep trying if the key is leaked
+      }
     }
   }
 
@@ -159,7 +185,12 @@ app.post('/api/search', async (req, res) => {
         return res.json({ ...data, source: 'AI' });
       }
     } catch (err) {
-       console.warn(`Model ${modelName} failed/quota hit. Trying next...`, err.message);
+       const errorMsg = err.message || String(err);
+       console.warn(`[AI Search] Model ${modelName} failed:`, errorMsg);
+       if (errorMsg.includes("leaked")) {
+         console.error("CRITICAL: Your Gemini API Key is leaked and blocked by Google.");
+         break; // Don't keep trying if the key is leaked
+       }
     }
   }
 

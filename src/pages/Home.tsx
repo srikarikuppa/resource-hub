@@ -100,8 +100,15 @@ const Home = () => {
       });
 
     if (!response.ok) {
-      const errorData = await response.json();
-      throw new Error(errorData.error || "Backend search failed");
+      const contentType = response.headers.get("content-type");
+      if (contentType && contentType.includes("application/json")) {
+        const errorData = await response.json();
+        throw new Error(errorData.error || "Backend search failed");
+      } else {
+        const text = await response.text();
+        console.error("Non-JSON error response:", text);
+        throw new Error(`Server Error (${response.status}). Ensure backend is running.`);
+      }
     }
 
     const data = await response.json();

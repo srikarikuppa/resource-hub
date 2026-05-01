@@ -87,8 +87,15 @@ const scanDocument = async (file: File, title: string, subject: string): Promise
     toast.dismiss('ai-scan');
 
     if (!response.ok) {
-      const errorData = await response.json();
-      throw new Error(errorData.error || "Backend verification failed");
+      const contentType = response.headers.get("content-type");
+      if (contentType && contentType.includes("application/json")) {
+        const errorData = await response.json();
+        throw new Error(errorData.error || "Backend verification failed");
+      } else {
+        const text = await response.text();
+        console.error("Non-JSON error response from scan:", text);
+        throw new Error(`Server Error (${response.status}). Ensure backend is running.`);
+      }
     }
 
     const data = await response.json();
