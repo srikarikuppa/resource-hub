@@ -122,30 +122,7 @@ const ResourceCard = ({ resource }: { resource: Resource }) => {
 
       <div className="flex items-center justify-between text-xs text-muted-foreground">
         <div className="flex items-center gap-3">
-          <span className="flex items-center gap-1">
-            <Star className="h-3.5 w-3.5 text-amber-500" fill="currentColor" />
-            {resource.rating}
-          </span>
-          <span className="flex items-center gap-1">
-            <Download className="h-3.5 w-3.5" />
-            {resource.downloads}
-          </span>
-        </div>
-        <div className="flex items-center gap-3">
           <span>{resource.fileSize}</span>
-          {resource.fileUrl && (
-            <button
-              onClick={(e) => {
-                e.preventDefault();
-                e.stopPropagation();
-                window.open(resource.fileUrl, '_blank');
-              }}
-              className="rounded-full bg-primary/10 p-1.5 text-primary hover:bg-primary hover:text-white transition-colors"
-              title="Download"
-            >
-              <Download className="h-3 w-3" />
-            </button>
-          )}
         </div>
       </div>
     </div>
