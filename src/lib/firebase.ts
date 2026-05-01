@@ -1,5 +1,5 @@
-import { initializeApp } from "firebase/app";
-import { getAuth } from "firebase/auth";
+import { initializeApp, FirebaseApp } from "firebase/app";
+import { getAuth, Auth } from "firebase/auth";
 
 // Your web app's Firebase configuration
 const firebaseConfig = {
@@ -18,7 +18,7 @@ if (!hasFirebaseKeys) {
 }
 
 // Initialize Firebase
-const app = hasFirebaseKeys ? initializeApp(firebaseConfig) : null;
-const auth = app ? getAuth(app) : (null as any);
+const app = hasFirebaseKeys ? initializeApp(firebaseConfig) : (null as unknown as FirebaseApp);
+const auth = app ? getAuth(app) : (null as unknown as Auth);
 
 export { app, auth };

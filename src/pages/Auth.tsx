@@ -40,7 +40,8 @@ export default function Auth() {
         toast.success("Account created successfully!");
       }
       navigate("/");
-    } catch (error: any) {
+    } catch (err: unknown) {
+      const error = err as { code?: string; message?: string };
       console.error("Auth Error:", error.code, error.message);
       let errorMsg = "Authentication failed. Please try again.";
       
